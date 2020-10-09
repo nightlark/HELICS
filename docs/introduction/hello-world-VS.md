@@ -41,11 +41,11 @@ Next > I agree > Choose to add system variables if you would like > Next > Choos
 
     ![](./visuals/lib.JPG)
 
-  -  include:
+  - include:
 
-        ![](./visuals/include.JPG)
+    ![](./visuals/include.JPG)
 
-        ** Keep track where the dynamic and static libraries are. We will need to know these locations to link it in Visual Studios! **
+    ** Keep track where the dynamic and static libraries are. We will need to know these locations to link it in Visual Studios! **
 
 **2. Pull the HELICS example folder down from github**
 
