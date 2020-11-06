@@ -14,9 +14,9 @@ SPDX-License-Identifier: BSD-3-Clause
 #include "helics/helics-config.h"
 #include "internal/api_objects.h"
 
-#include <iostream>
 #include <atomic>
 #include <future>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -63,14 +63,31 @@ void helicsErrorClear(helics_error* err)
 #include <csignal>
 static void signalHandler(int signum)
 {
-    std::cout << "Interrupt signal (" << signum << ") received.\n";
-    helicsCloseLibrary();
+    helicsAbort(-27, "user abort");
+    //add a sleep to give the abort a chance to propagate
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
     exit(signum);
 }
 
 void helicsLoadSignalHandler()
 {
     signal(SIGINT, signalHandler);
+}
+
+static void (*keyHandler)(int) = nullptr;
+
+static void signalHandlerCallback(int signum)
+{
+    if (keyHandler != nullptr) {
+        keyHandler(signum);
+    }
+    signalHandler(signum);
+}
+
+void helicsLoadSignalHandlerCallback(void (*handler)(int))
+{
+    keyHandler = handler;
+    signal(SIGINT, signalHandlerCallback);
 }
 
 helics_bool helicsIsCoreTypeAvailable(const char* type)
@@ -824,6 +841,14 @@ void helicsCloseLibrary(void)
     // helics::cleanupHelicsLibrary();
 }
 
+void helicsAbort(int errorCode, const char* message)
+{
+    auto v = getMasterHolder();
+    if (v) {
+        v->abortAll(errorCode, message);
+    }
+}
+
 static const char* invalidQueryString = "Query object is invalid";
 
 static const int validQueryIdentifier = 0x2706'3885;
@@ -1102,6 +1127,19 @@ void MasterObjectHolder::clearFed(int index)
                 fed->clear();
             }
         }
+    }
+}
+
+void MasterObjectHolder::abortAll(int code, const std::string& error)
+{
+    {
+        auto fedHandle = feds.lock();
+        for (auto& fed : fedHandle) {
+            if ((fed) && (fed->fedptr)) {
+                fed->fedptr->globalError(code, error);
+            }
+        }
+        fedHandle->clear();
     }
 }
 
